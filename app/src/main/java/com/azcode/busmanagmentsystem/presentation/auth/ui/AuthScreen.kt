@@ -1,5 +1,6 @@
 package com.azcode.busmanagmentsystem.presentation.auth.ui
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,6 +16,7 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -29,6 +31,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.azcode.busmanagmentsystem.data.remote.Result
 import com.azcode.busmanagmentsystem.presentation.auth.viewmodel.AuthViewModel
 import com.azcode.busmanagmentsystem.ui.theme.LatoFont
 import com.azcode.busmanagmentsystem.ui.theme.NavigationGreen
@@ -39,6 +43,17 @@ fun AuthScreen(
     authViewModel: AuthViewModel = hiltViewModel()
 ) {
     var selectedTabIndex by remember { mutableIntStateOf(0) }
+    val registerResult by authViewModel.registerState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(registerResult) {
+        when (registerResult) {
+            is Result.Success -> {
+                selectedTabIndex = 0
+
+            }
+            else -> Unit // Do nothing for Idle state
+        }
+    }
 
     Box(
         modifier = Modifier

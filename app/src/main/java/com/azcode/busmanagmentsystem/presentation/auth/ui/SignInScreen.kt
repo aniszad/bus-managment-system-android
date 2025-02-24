@@ -1,5 +1,6 @@
 package com.azcode.busmanagmentsystem.presentation.auth.ui
 
+import android.widget.Toast
 import androidx.compose.foundation.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -12,28 +13,55 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.*
 import androidx.constraintlayout.compose.ConstraintLayout
 import com.azcode.busmanagmentsystem.data.remote.BsbApiService
+import com.azcode.busmanagmentsystem.data.remote.Result
 import com.azcode.busmanagmentsystem.data.remote.UserAuthRequest
 import com.azcode.busmanagmentsystem.data.remote.UserAuthResponse
 import com.azcode.busmanagmentsystem.data.remote.UserRegistrationRequest
 import com.azcode.busmanagmentsystem.data.remote.UserRegistrationResponse
 import com.azcode.busmanagmentsystem.domain.repository.AuthRepository
+import com.azcode.busmanagmentsystem.presentation.auth.state.SignInFormState
+import com.azcode.busmanagmentsystem.presentation.auth.state.toUserAuthRequest
 import com.azcode.busmanagmentsystem.presentation.auth.viewmodel.AuthViewModel
+import com.azcode.busmanagmentsystem.presentation.components.LoadingDialog
 import com.azcode.busmanagmentsystem.ui.theme.*
 import retrofit2.Response
 
 
 @Composable
 fun SignInScreen(
-    authViewModel : AuthViewModel
+    authViewModel: AuthViewModel
 ) {
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var passwordVisible by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    var signInFormState by remember { mutableStateOf(SignInFormState()) }
+    val signInState by authViewModel.loginState.collectAsState()
+    val isLoading by authViewModel.isSigninLoading.collectAsState()
+
+    LaunchedEffect(signInState) {
+        when (signInState) {
+            is Result.Success -> {
+                authViewModel.updateSignInLoading(false)
+            }
+
+            is Result.Error -> {
+                Toast.makeText(context, (signInState as Result.Error).message, Toast.LENGTH_SHORT)
+                    .show()
+                authViewModel.updateSignInLoading(false)
+            }
+
+            is Result.Loading -> {
+                authViewModel.updateSignInLoading(true)
+            }
+
+            else -> null
+        }
+    }
 
     BusTrackingTheme {
         ConstraintLayout(
@@ -45,7 +73,7 @@ fun SignInScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
-                    .constrainAs(card){
+                    .constrainAs(card) {
                         top.linkTo(parent.top)
                         bottom.linkTo(parent.bottom)
                         end.linkTo(parent.end)
@@ -66,19 +94,24 @@ fun SignInScreen(
                             .clip(RoundedCornerShape(12.dp))
                             .background(Color.Black.copy(alpha = 0.75f)) // More transparent for a glassy look
                             .graphicsLayer {
-                                renderEffect = BlurEffect(radiusX = 35f, radiusY = 35f, edgeTreatment = TileMode.Decal)
+                                renderEffect = BlurEffect(
+                                    radiusX = 35f,
+                                    radiusY = 35f,
+                                    edgeTreatment = TileMode.Decal
+                                )
                             },
                     )
 
+                    LoadingDialog(isLoading) {
 
+                    }
                     Column(
                         modifier = Modifier.padding(8.dp)
                     ) {
                         OutlinedTextField(
-                            value = email, // viewModel.email
+                            value = signInFormState.credentials, // viewModel.email
                             onValueChange = {
-                                email = it
-                                // viewModel.onEmailChange(it)
+                                signInFormState = signInFormState.copy(credentials = it)
                             },
                             shape = RoundedCornerShape(8.dp),
                             colors =
@@ -103,8 +136,10 @@ fun SignInScreen(
 
 
                         OutlinedTextField(
-                            value = password,
-                            onValueChange = { password = it },
+                            value = signInFormState.password,
+                            onValueChange = {
+                                signInFormState = signInFormState.copy(password = it)
+                            },
                             shape = RoundedCornerShape(8.dp),
                             colors = OutlinedTextFieldDefaults.colors(
                                 cursorColor = Color.White,
@@ -118,12 +153,15 @@ fun SignInScreen(
                             keyboardOptions = KeyboardOptions.Default.copy(
                                 keyboardType = KeyboardType.Password
                             ),
-                            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                            visualTransformation = if (signInFormState.passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                             trailingIcon = {
-                                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                IconButton(onClick = {
+                                    signInFormState.passwordVisible =
+                                        !signInFormState.passwordVisible
+                                }) {
                                     Icon(
-                                        imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                        contentDescription = if (passwordVisible) "Hide password" else "Show password",
+                                        imageVector = if (signInFormState.passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                        contentDescription = if (signInFormState.passwordVisible) "Hide password" else "Show password",
                                         tint = Color.White
                                     )
                                 }
@@ -136,7 +174,9 @@ fun SignInScreen(
 
                         Button(
                             onClick = {
-                                // viewModel.login()
+                                authViewModel.loginUser(
+                                    userAuthRequest = signInFormState.toUserAuthRequest()
+                                )
                             },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonColors(
@@ -152,11 +192,13 @@ fun SignInScreen(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         TextButton(
-                            modifier = Modifier.align(Alignment.CenterHorizontally).clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null, // Disables ripple effect
-                                onClick = {}
-                            ),
+                            modifier = Modifier
+                                .align(Alignment.CenterHorizontally)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null, // Disables ripple effect
+                                    onClick = {}
+                                ),
                             colors = ButtonDefaults.textButtonColors(),
                             onClick = {
                                 // navController.navigate("register")
@@ -199,6 +241,7 @@ fun LoginScreenPreview() {
         }
 
     }
+
     class fakeAuthRepo(fakeBsbApi: fakeBsbApi) : AuthRepository(fakeBsbApi)
     class fakeAuthViewModel(fakeAuthRepo: fakeAuthRepo) : AuthViewModel(fakeAuthRepo)
     SignInScreen(fakeAuthViewModel(fakeAuthRepo((fakeBsbApi()))))

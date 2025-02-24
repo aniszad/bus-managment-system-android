@@ -8,9 +8,9 @@ import javax.inject.Inject
 
 open class AuthRepository @Inject constructor(private var bsbApiService: BsbApiService) {
 
-    suspend fun loginUser(credentials: String, password: String): Result<UserAuthResponse> {
+    suspend fun loginUser(userAuthRequest: UserAuthRequest): Result<UserAuthResponse> {
         return try {
-            val response = bsbApiService.loginUser(UserAuthRequest(credentials, password))
+            val response = bsbApiService.loginUser(userAuthRequest)
 
             if (response.isSuccessful) {
                 Log.e("Registration-Response:","${response.body()}")
@@ -26,23 +26,11 @@ open class AuthRepository @Inject constructor(private var bsbApiService: BsbApiS
     }
 
     suspend fun registerUser(
-        firstName: String,
-        lastName: String,
-        email: String,
-        password: String,
-        phoneNumber: String,
-        role: Role
+        userRegistrationRequest: UserRegistrationRequest
     ): Result<UserRegistrationResponse> {
         return try {
             val response = bsbApiService.registerUser(
-                UserRegistrationRequest(
-                    firstName = firstName,
-                    lastName = lastName,
-                    email = email,
-                    phoneNumber = phoneNumber,
-                    password = password,
-                    role = role
-                )
+                userRegistrationRequest
             )
 
             if (response.isSuccessful) {
