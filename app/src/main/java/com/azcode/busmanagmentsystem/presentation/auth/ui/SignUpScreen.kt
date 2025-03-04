@@ -45,7 +45,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.azcode.busmanagmentsystem.data.local.SecuredPreferencesManager
+import com.azcode.busmanagmentsystem.data.local.SessionManager
 import com.azcode.busmanagmentsystem.data.remote.BsbApiService
+import com.azcode.busmanagmentsystem.data.remote.RefreshTokenRequest
+import com.azcode.busmanagmentsystem.data.remote.RefreshTokenResponse
 import com.azcode.busmanagmentsystem.data.remote.Result
 import com.azcode.busmanagmentsystem.data.remote.UserAuthRequest
 import com.azcode.busmanagmentsystem.data.remote.UserAuthResponse
@@ -69,7 +73,6 @@ fun SignUpScreen(
     val registerResult by authViewModel.registerState.collectAsStateWithLifecycle()
 
     var registerForm by remember { mutableStateOf(RegistrationFormState()) }
-    var errors by remember { mutableStateOf(mapOf<String, String>()) }
 
     // Validation functions
     fun validateName(name: String): String? {
@@ -127,13 +130,13 @@ fun SignUpScreen(
         validatePhoneNumber(registerForm.phoneNumber ?: "")?.let { newErrors["phoneNumber"] = it }
         validatePassword(registerForm.password)?.let { newErrors["password"] = it }
 
-        errors = newErrors
+        registerForm = registerForm.copy(errors = newErrors)
         return newErrors.isEmpty()
     }
 
     fun clearRegistrationForm() {
         registerForm = RegistrationFormState()
-        errors = mapOf()
+        registerForm.errors = mapOf()
     }
 
     when (registerResult) {
@@ -212,8 +215,8 @@ fun SignUpScreen(
                             onValueChange = {
                                 registerForm = registerForm.copy(firstName = it)
                                 // Clear error when user types
-                                if (errors.containsKey("firstName")) {
-                                    errors = errors.toMutableMap().apply { remove("firstName") }
+                                if (registerForm.errors.containsKey("firstName")) {
+                                    registerForm.errors = registerForm.errors.toMutableMap().apply { remove("firstName") }
                                 }
                             },
                             shape = RoundedCornerShape(8.dp),
@@ -232,9 +235,9 @@ fun SignUpScreen(
                             keyboardOptions = KeyboardOptions.Default.copy(
                                 keyboardType = KeyboardType.Text
                             ),
-                            isError = errors.containsKey("firstName"),
+                            isError = registerForm.errors.containsKey("firstName"),
                             supportingText = {
-                                errors["firstName"]?.let {
+                                registerForm.errors["firstName"]?.let {
                                     Text(it, color = Color.Red, fontSize = 12.sp)
                                 }
                             },
@@ -247,8 +250,8 @@ fun SignUpScreen(
                             value = registerForm.lastName,
                             onValueChange = {
                                 registerForm = registerForm.copy(lastName = it)
-                                if (errors.containsKey("lastName")) {
-                                    errors = errors.toMutableMap().apply { remove("lastName") }
+                                if (registerForm.errors.containsKey("lastName")) {
+                                    registerForm.errors = registerForm.errors.toMutableMap().apply { remove("lastName") }
                                 }
                             },
                             shape = RoundedCornerShape(8.dp),
@@ -267,9 +270,9 @@ fun SignUpScreen(
                             keyboardOptions = KeyboardOptions.Default.copy(
                                 keyboardType = KeyboardType.Text
                             ),
-                            isError = errors.containsKey("lastName"),
+                            isError = registerForm.errors.containsKey("lastName"),
                             supportingText = {
-                                errors["lastName"]?.let {
+                                registerForm.errors["lastName"]?.let {
                                     Text(it, color = Color.Red, fontSize = 12.sp)
                                 }
                             },
@@ -282,8 +285,8 @@ fun SignUpScreen(
                             value = registerForm.email,
                             onValueChange = {
                                 registerForm = registerForm.copy(email = it)
-                                if (errors.containsKey("email")) {
-                                    errors = errors.toMutableMap().apply { remove("email") }
+                                if (registerForm.errors.containsKey("email")) {
+                                    registerForm.errors = registerForm.errors.toMutableMap().apply { remove("email") }
                                 }
                             },
                             shape = RoundedCornerShape(8.dp),
@@ -302,9 +305,9 @@ fun SignUpScreen(
                             keyboardOptions = KeyboardOptions.Default.copy(
                                 keyboardType = KeyboardType.Email
                             ),
-                            isError = errors.containsKey("email"),
+                            isError = registerForm.errors.containsKey("email"),
                             supportingText = {
-                                errors["email"]?.let {
+                                registerForm.errors["email"]?.let {
                                     Text(it, color = Color.Red, fontSize = 12.sp)
                                 }
                             },
@@ -317,8 +320,8 @@ fun SignUpScreen(
                             value = registerForm.phoneNumber ?: "",
                             onValueChange = {
                                 registerForm = registerForm.copy(phoneNumber = it)
-                                if (errors.containsKey("phoneNumber")) {
-                                    errors = errors.toMutableMap().apply { remove("phoneNumber") }
+                                if (registerForm.errors.containsKey("phoneNumber")) {
+                                    registerForm.errors = registerForm.errors.toMutableMap().apply { remove("phoneNumber") }
                                 }
                             },
                             shape = RoundedCornerShape(8.dp),
@@ -337,9 +340,9 @@ fun SignUpScreen(
                             keyboardOptions = KeyboardOptions.Default.copy(
                                 keyboardType = KeyboardType.Phone
                             ),
-                            isError = errors.containsKey("phoneNumber"),
+                            isError = registerForm.errors.containsKey("phoneNumber"),
                             supportingText = {
-                                errors["phoneNumber"]?.let {
+                                registerForm.errors["phoneNumber"]?.let {
                                     Text(it, color = Color.Red, fontSize = 12.sp)
                                 }
                             },
@@ -352,8 +355,8 @@ fun SignUpScreen(
                             value = registerForm.password,
                             onValueChange = {
                                 registerForm = registerForm.copy(password = it)
-                                if (errors.containsKey("password")) {
-                                    errors = errors.toMutableMap().apply { remove("password") }
+                                if (registerForm.errors.containsKey("password")) {
+                                    registerForm.errors = registerForm.errors.toMutableMap().apply { remove("password") }
                                 }
                             },
                             shape = RoundedCornerShape(8.dp),
@@ -386,9 +389,9 @@ fun SignUpScreen(
                                     )
                                 }
                             },
-                            isError = errors.containsKey("password"),
+                            isError = registerForm.errors.containsKey("password"),
                             supportingText = {
-                                errors["password"]?.let {
+                                registerForm.errors["password"]?.let {
                                     Text(it, color = Color.Red, fontSize = 12.sp)
                                 }
                             },
@@ -400,7 +403,7 @@ fun SignUpScreen(
                         Button(
                             onClick = {
                                 if (validateForm()) {
-                                    authViewModel.registerUser(registerForm.toUserRegistrationRequest())
+                                    authViewModel.signUp(registerForm.toUserRegistrationRequest())
                                 }
                             },
                             modifier = Modifier.fillMaxWidth(),
@@ -426,19 +429,26 @@ fun SignUpScreen(
 @Preview(showBackground = true)
 @Composable
 fun SignupScreenPreview() {
+    val context = LocalContext.current
+    class FakeSecuredPref : SecuredPreferencesManager(context)
+    class FakeSessionManager : SessionManager(FakeSecuredPref())
     class FakeBsbApi : BsbApiService {
-        override suspend fun registerUser(userRegistrationRequest: UserRegistrationRequest): Response<UserRegistrationResponse> {
+        override suspend fun signUp(userRegistrationRequest: UserRegistrationRequest): Response<UserRegistrationResponse> {
             TODO("Not yet implemented")
         }
 
-        override suspend fun loginUser(userAuthRequest: UserAuthRequest): Response<UserAuthResponse> {
+        override suspend fun signIn(userAuthRequest: UserAuthRequest): Response<UserAuthResponse> {
+            TODO("Not yet implemented")
+        }
+
+        override suspend fun refreshToken(refreshTokenRequest: RefreshTokenRequest): Response<RefreshTokenResponse> {
             TODO("Not yet implemented")
         }
 
     }
 
-    class FakeAuthRepo(fakeBsbApi: FakeBsbApi) : AuthRepository(fakeBsbApi)
-    class FakeAuthViewModel(fakeAuthRepo: FakeAuthRepo) : AuthViewModel(fakeAuthRepo)
+    class FakeAuthRepo(fakeBsbApi: FakeBsbApi) : AuthRepository(fakeBsbApi, FakeSecuredPref())
+    class FakeAuthViewModel(fakeAuthRepo: FakeAuthRepo) : AuthViewModel(FakeSessionManager(), fakeAuthRepo)
 
     SignUpScreen(FakeAuthViewModel(FakeAuthRepo((FakeBsbApi()))))
 }

@@ -26,32 +26,63 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.paint
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavHostController
 import com.azcode.busmanagmentsystem.data.remote.Result
 import com.azcode.busmanagmentsystem.presentation.auth.viewmodel.AuthViewModel
+import com.azcode.busmanagmentsystem.services.LocationServiceController
 import com.azcode.busmanagmentsystem.ui.theme.LatoFont
 import com.azcode.busmanagmentsystem.ui.theme.NavigationGreen
 
 // Screen containing TabRow (to switch between sign in and sign up)
 @Composable
 fun AuthScreen(
-    authViewModel: AuthViewModel = hiltViewModel()
+    authViewModel: AuthViewModel = hiltViewModel(),
+    navHostController: NavHostController,
 ) {
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val registerResult by authViewModel.registerState.collectAsStateWithLifecycle()
+    val signInResult by authViewModel.loginState.collectAsStateWithLifecycle()
+    val isUserLoggedIn by authViewModel.userAlreadyLoggedIn.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
-    LaunchedEffect(registerResult) {
+    LaunchedEffect(Unit) {
+        authViewModel.userIsLoggedIn()
+    }
+
+
+    LaunchedEffect(registerResult, signInResult, isUserLoggedIn) {
+        if (isUserLoggedIn) {
+            navHostController.navigate("home") {
+                popUpTo("auth") { inclusive = true }
+            }
+        }
         when (registerResult) {
             is Result.Success -> {
                 selectedTabIndex = 0
 
             }
+
             else -> Unit // Do nothing for Idle state
+        }
+        when (signInResult) {
+            is Result.Success -> {
+                navHostController.navigate("home") {
+                    popUpTo("auth") { inclusive = true }
+                }
+            }
+
+            is Result.Error -> {
+                Toast.makeText(context, "failed to sign in", Toast.LENGTH_SHORT).show()
+            }
+
+            else -> null
         }
     }
 
@@ -126,7 +157,7 @@ fun AuthScreen(
 @Preview
 @Composable
 fun AuthPreview() {
-    AuthScreen()
+    //AuthScreen()
 }
 
 

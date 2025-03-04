@@ -10,4 +10,5 @@ data class UserAuthResponse(
     val phoneNumber: String,
     val role: Role,
     val accessToken: String,
+    val refreshToken: String,
 )

@@ -1,21 +1,35 @@
 package com.azcode.busmanagmentsystem.domain.repository
 
 import android.util.Log
+import com.azcode.busmanagmentsystem.data.local.SecuredPreferencesManager
 import com.azcode.busmanagmentsystem.data.remote.*
 import retrofit2.HttpException
 import java.io.IOException
 import javax.inject.Inject
 
-open class AuthRepository @Inject constructor(private var bsbApiService: BsbApiService) {
+open class AuthRepository @Inject constructor(
+    private var bsbApiService: BsbApiService,
+    private var securedPreferencesManager: SecuredPreferencesManager
+) {
 
-    suspend fun loginUser(userAuthRequest: UserAuthRequest): Result<UserAuthResponse> {
+    suspend fun signIn(userAuthRequest: UserAuthRequest): Result<UserAuthResponse> {
         return try {
-            val response = bsbApiService.loginUser(userAuthRequest)
+            val response = bsbApiService.signIn(userAuthRequest)
 
             if (response.isSuccessful) {
-                Log.e("Registration-Response:","${response.body()}")
+                // if the sign in is successful we still have to save the access/refresh token successfully
+                Log.e("Registration-Response:", "${response.body()}")
+
                 response.body()?.let {
-                    Result.Success(it)
+                    val tokensSaved =
+                        securedPreferencesManager.saveRefreshToken(it.refreshToken) && securedPreferencesManager.saveAccessToken(
+                            it.accessToken
+                        )
+                    if (tokensSaved){
+                        Result.Success(it)
+                    }else{
+                        Result.Error("Couldn't log in: Failed to save tokens")
+                    }
                 } ?: Result.Error("Couldn't log in: Empty response")
             } else {
                 handleLoginError(response.code())
@@ -25,11 +39,11 @@ open class AuthRepository @Inject constructor(private var bsbApiService: BsbApiS
         }
     }
 
-    suspend fun registerUser(
+    suspend fun signUp(
         userRegistrationRequest: UserRegistrationRequest
     ): Result<UserRegistrationResponse> {
         return try {
-            val response = bsbApiService.registerUser(
+            val response = bsbApiService.signUp(
                 userRegistrationRequest
             )
 
@@ -68,5 +82,9 @@ open class AuthRepository @Inject constructor(private var bsbApiService: BsbApiS
             500 -> Result.Error("Server error. Try again later.")
             else -> Result.Error("Registration failed with error code: $code")
         }
+    }
+
+    fun isUserLoggedIn(): Boolean {
+        return securedPreferencesManager.getAccessToken() != null && securedPreferencesManager.getRefreshToken() != null
     }
 }

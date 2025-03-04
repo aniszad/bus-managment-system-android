@@ -54,11 +54,20 @@ android {
 
 dependencies {
 
+    // MQTT Broker (using mosquitto)
+    implementation (libs.org.eclipse.paho.client.mqttv3)
+    implementation (libs.org.eclipse.paho.android.service)
+    implementation(libs.play.services.location) // GPS Service
+    implementation(libs.org.eclipse.paho.client.mqttv3) // MQTT Client
+
+
+
     //MapLibre Native
     implementation (libs.android.sdk)
 
     // Retrofit
     implementation (libs.retrofit)
+    implementation(libs.androidx.ui.test.android)
 
     // Hilt
     ksp(libs.hilt.compiler)
@@ -75,6 +84,8 @@ dependencies {
     implementation (libs.androidx.lifecycle.viewmodel.compose)
 
 
+    //EncryptedSharedPreferences
+    implementation (libs.androidx.security.crypto)
 
     // Built-in
     implementation(libs.androidx.constraintlayout.compose)

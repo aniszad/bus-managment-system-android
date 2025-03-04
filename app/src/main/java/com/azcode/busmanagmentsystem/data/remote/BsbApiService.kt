@@ -7,8 +7,11 @@ import retrofit2.http.POST
 interface BsbApiService {
 
     @POST("/api/user/create")
-    suspend fun registerUser(@Body userRegistrationRequest : UserRegistrationRequest) : Response<UserRegistrationResponse>
+    suspend fun signUp(@Body userRegistrationRequest : UserRegistrationRequest) : Response<UserRegistrationResponse>
 
     @POST("api/auth/login")
-    suspend fun loginUser(@Body userAuthRequest: UserAuthRequest): Response<UserAuthResponse>
+    suspend fun signIn(@Body userAuthRequest: UserAuthRequest): Response<UserAuthResponse>
+
+    @POST("api/auth/refresh")
+    suspend fun refreshToken(@Body refreshTokenRequest: RefreshTokenRequest): Response<RefreshTokenResponse>
 }

@@ -1,24 +1,60 @@
 package com.azcode.busmanagmentsystem.presentation.auth.ui
 
 import android.widget.Toast
-import androidx.compose.foundation.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.*
-import androidx.compose.ui.draw.*
-import androidx.compose.ui.graphics.*
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonColors
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.BlurEffect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.*
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.*
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.constraintlayout.compose.ConstraintLayout
+import androidx.navigation.NavHostController
+import com.azcode.busmanagmentsystem.data.local.SecuredPreferencesManager
+import com.azcode.busmanagmentsystem.data.local.SessionManager
 import com.azcode.busmanagmentsystem.data.remote.BsbApiService
+import com.azcode.busmanagmentsystem.data.remote.RefreshTokenRequest
+import com.azcode.busmanagmentsystem.data.remote.RefreshTokenResponse
 import com.azcode.busmanagmentsystem.data.remote.Result
 import com.azcode.busmanagmentsystem.data.remote.UserAuthRequest
 import com.azcode.busmanagmentsystem.data.remote.UserAuthResponse
@@ -29,13 +65,14 @@ import com.azcode.busmanagmentsystem.presentation.auth.state.SignInFormState
 import com.azcode.busmanagmentsystem.presentation.auth.state.toUserAuthRequest
 import com.azcode.busmanagmentsystem.presentation.auth.viewmodel.AuthViewModel
 import com.azcode.busmanagmentsystem.presentation.components.LoadingDialog
-import com.azcode.busmanagmentsystem.ui.theme.*
+import com.azcode.busmanagmentsystem.ui.theme.BusTrackingTheme
+import com.azcode.busmanagmentsystem.ui.theme.NavigationGreen
 import retrofit2.Response
 
 
 @Composable
 fun SignInScreen(
-    authViewModel: AuthViewModel
+    authViewModel: AuthViewModel,
 ) {
 
     val context = LocalContext.current
@@ -43,10 +80,35 @@ fun SignInScreen(
     val signInState by authViewModel.loginState.collectAsState()
     val isLoading by authViewModel.isSigninLoading.collectAsState()
 
+    fun validatePassword(password: String): String? {
+        return when {
+            password.isBlank() -> "Password is required"
+            password.length < 6 -> "Password must be at least 6 characters"
+            !password.any { it.isDigit() } -> "Password must contain at least one number"
+            !password.any { it.isUpperCase() } -> "Password must contain at least one uppercase letter"
+            else -> null
+        }
+    }
+    fun validateEmail(email: String): String? {
+        val emailRegex = "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\$".toRegex()
+        return when {
+            email.isBlank() -> "Email is required"
+            !email.matches(emailRegex) -> "Please enter a valid email address"
+            else -> null
+        }
+    }
+    fun validateSignInForm(email:String, password:String): Boolean {
+        val newErrors = mutableMapOf<String, String>()
+
+        validateEmail(signInFormState.credentials)?.let { newErrors["email"] = it }
+        validatePassword(signInFormState.password)?.let { newErrors["password"] = it }
+        signInFormState.errors = newErrors
+        return newErrors.isEmpty()
+    }
     LaunchedEffect(signInState) {
         when (signInState) {
             is Result.Success -> {
-                authViewModel.updateSignInLoading(false)
+
             }
 
             is Result.Error -> {
@@ -102,9 +164,7 @@ fun SignInScreen(
                             },
                     )
 
-                    LoadingDialog(isLoading) {
-
-                    }
+                    LoadingDialog(isLoading) {}
                     Column(
                         modifier = Modifier.padding(8.dp)
                     ) {
@@ -174,7 +234,7 @@ fun SignInScreen(
 
                         Button(
                             onClick = {
-                                authViewModel.loginUser(
+                                authViewModel.signIn(
                                     userAuthRequest = signInFormState.toUserAuthRequest()
                                 )
                             },
@@ -227,24 +287,41 @@ fun SignInScreen(
     }
 }
 
+@Composable
+fun SignInScreenUi(){
+
+}
+
 
 @Preview(showBackground = true)
 @Composable
 fun LoginScreenPreview() {
-    class fakeBsbApi : BsbApiService {
-        override suspend fun registerUser(userRegistrationRequest: UserRegistrationRequest): Response<UserRegistrationResponse> {
+    val context = LocalContext.current
+    class FakeSecuredPref() : SecuredPreferencesManager(context){
+
+    }
+    class FakeSessionManager() : SessionManager(FakeSecuredPref()){
+
+    }
+    class FakeBsbApi : BsbApiService {
+        override suspend fun signUp(userRegistrationRequest: UserRegistrationRequest): Response<UserRegistrationResponse> {
             TODO("Not yet implemented")
         }
 
-        override suspend fun loginUser(userAuthRequest: UserAuthRequest): Response<UserAuthResponse> {
+        override suspend fun signIn(userAuthRequest: UserAuthRequest): Response<UserAuthResponse> {
+            TODO("Not yet implemented")
+        }
+
+        override suspend fun refreshToken(refreshTokenRequest: RefreshTokenRequest): Response<RefreshTokenResponse> {
             TODO("Not yet implemented")
         }
 
     }
 
-    class fakeAuthRepo(fakeBsbApi: fakeBsbApi) : AuthRepository(fakeBsbApi)
-    class fakeAuthViewModel(fakeAuthRepo: fakeAuthRepo) : AuthViewModel(fakeAuthRepo)
-    SignInScreen(fakeAuthViewModel(fakeAuthRepo((fakeBsbApi()))))
+    class FakeAuthRepo(fakeBsbApi: FakeBsbApi) : AuthRepository(FakeBsbApi(), FakeSecuredPref())
+    class FakeAuthViewModel(fakeAuthRepo: FakeAuthRepo) : AuthViewModel(FakeSessionManager(), FakeAuthRepo(FakeBsbApi()))
+
+    //SignInScreen(FakeAuthViewModel(FakeAuthRepo((FakeBsbApi()))))
 }
 
 
